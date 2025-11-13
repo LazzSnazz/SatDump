@@ -21,7 +21,7 @@ namespace goes
             void reset();
             bool has_data();
             void save();
-            void saveABICompo(image::Image img, std::string name);
+            void saveABICompo(image::Image img, std::string name, std::string utc_filename);
 
         public:
             ABIComposer(std::string dir, products::ABI::ABIScanType abi_type);
