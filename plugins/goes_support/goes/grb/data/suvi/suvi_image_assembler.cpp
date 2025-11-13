@@ -1,6 +1,8 @@
 #include "suvi_image_assembler.h"
 #include "logger.h"
+#include <cmath>
 #include <filesystem>
+#include "common/image/processing.h"
 
 namespace goes
 {
@@ -35,7 +37,81 @@ namespace goes
             std::string directory = suvi_directory + "/" + suvi_product.channel + "/";
             std::filesystem::create_directories(directory);
 
-            // full_image.save_img(std::string(directory + filename).c_str());
+// new stuff (yes I know most of this was done with the help with chatgpt but whatever works. it will get cleaned up more when I get more used to this)
+           image::white_balance(full_image);
+            full_image.to_rgb();
+            
+// find min and max for dynamic range 
+            double min_val = 1e12;
+            double max_val = -1e12;
+            for (size_t y = 0; y < full_image.height(); ++y)
+             for (size_t x = 0; x < full_image.width(); ++x) {
+               double v = full_image.get_pixel_bilinear(0, (double)x, (double)y);
+                if (v < min_val) min_val = v;
+                if (v > max_val) max_val = v;
+               }
+
+            double scale = 1.0 / (max_val - min_val + 1e-9);
+//set ours tints (WIP)
+            std::vector<double> tint;
+            if (suvi_product.channel == "Fe094"){
+             tint = {0.533, 1.0, 1.0};
+            }else if (suvi_product.channel == "Fe132"){
+             tint = {0.0, 72.4 / 100, 72.4 / 100};  
+            }else if (suvi_product.channel == "Fe171"){
+             tint = {1.0, 0.792, 0.184};
+            }else if (suvi_product.channel == "Fe195"){
+             tint = {100.0/ 100, 49.2 / 100, 0.0};
+            }else if (suvi_product.channel == "Fe284"){
+             tint = {47.5 / 100, 79.7 / 100, 99.6 / 100};
+            }else if (suvi_product.channel == "Fe304"){
+             tint = {100.0 / 100, 41.7 / 100, 0};
+            }
+
+            double gamma_value = 0.5; // Values less than 1.0 make the image brighter
+
+            //apply ours tints
+            for (size_t y = 0; y < full_image.height(); ++y)
+             for (size_t x = 0; x < full_image.width(); ++x){
+              double raw = full_image.get_pixel_bilinear(0, (double)x, (double)y);
+              double v = (raw - min_val) * scale;        // normalize to 0–1
+              v = std::pow(v, gamma_value);
+
+              //std::vector<double> color = {v*tint[0], v*tint[1], v*tint[2]};
+            std::vector<double> color(3);
+
+            if (v < 0.5) {
+             // black → tint (dark half)
+             double t = v * 2.0;
+             color[0] = t * tint[0];
+             color[1] = t * tint[1];
+             color[2] = t * tint[2];
+            } else {
+            // tint → white (bright half)
+             double t = (v - 0.5) * 2.0;
+             color[0] = tint[0] + (1.0 - tint[0]) * t;
+             color[1] = tint[1] + (1.0 - tint[1]) * t;
+             color[2] = tint[2] + (1.0 - tint[2]) * t;
+         }
+
+full_image.draw_pixel(x, y, color);
+
+              
+
+              full_image.draw_pixel(x, y, color);
+              }
+
+//product handling just incase we need it again
+            //satdump::ImageProducts suvi_product_data;
+            //suvi_product_data.instrument_name = "suvi";
+            //suvi_product_data.bit_depth = 16;
+            //suvi_product_data.has_timestamps = false;
+            //suvi_product_data.timestamp_type = satdump::ImageProducts::TIMESTAMP_
+            //suvi_product_data.set_timestamps({ static_cast<double>(currentTimeStamp) });
+            //suvi_product_data.images.push_back({"SUVI-" + suvi_product.channel, suvi_product.channel, full_image});
+            //suvi_product_data.save(directory);
+image::median_blur(full_image);
+
             saving_thread->push(full_image, std::string(directory + filename));
         }
 
