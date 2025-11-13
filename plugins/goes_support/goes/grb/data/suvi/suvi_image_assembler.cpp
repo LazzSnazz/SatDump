@@ -37,7 +37,7 @@ namespace goes
             std::string directory = suvi_directory + "/" + suvi_product.channel + "/";
             std::filesystem::create_directories(directory);
 
-// new stuff (yes I know most of this was done with the help with chatgpt but whatever works. it will get cleaned up more when I get more used to this) tyest
+// new stuff (yes I know most of this was done with the help with chatgpt but whatever works. it will get cleaned up more when I get more used to this)
            image::white_balance(full_image);
             full_image.to_rgb();
             
