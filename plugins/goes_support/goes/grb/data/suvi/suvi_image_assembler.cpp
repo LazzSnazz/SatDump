@@ -1,7 +1,9 @@
 #include "suvi_image_assembler.h"
+#include "common/image/image.h"
 #include "logger.h"
 #include <cmath>
 #include <filesystem>
+#include <thread>
 #include "common/image/processing.h"
 
 namespace goes
@@ -38,15 +40,26 @@ namespace goes
             std::filesystem::create_directories(directory);
 
 // new stuff (yes I know most of this was done with the help with chatgpt but whatever works. it will get cleaned up more when I get more used to this)
-           image::white_balance(full_image);
-            full_image.to_rgb();
+    
+    auto full_image_copy = std::make_shared<image::Image>(full_image);   // deep copy or shared pointer
+    auto suvi_product_copy = suvi_product;                        // local copy of struct
+    auto directory_copy = directory;
+    auto filename_copy = filename;
+    auto saving_thread_ptr = saving_thread; 
+
+
+
+
+std::thread([=](){
+           image::white_balance(*full_image_copy);
+            full_image_copy->to_rgb();
             
 // find min and max for dynamic range 
             double min_val = 1e12;
             double max_val = -1e12;
-            for (size_t y = 0; y < full_image.height(); ++y)
-             for (size_t x = 0; x < full_image.width(); ++x) {
-               double v = full_image.get_pixel_bilinear(0, (double)x, (double)y);
+            for (size_t y = 0; y < full_image_copy->height(); ++y)
+             for (size_t x = 0; x < full_image_copy->width(); ++x) {
+               double v = full_image_copy->get_pixel_bilinear(0, (double)x, (double)y);
                 if (v < min_val) min_val = v;
                 if (v > max_val) max_val = v;
                }
@@ -54,26 +67,26 @@ namespace goes
             double scale = 1.0 / (max_val - min_val + 1e-9);
 //set ours tints (WIP)
             std::vector<double> tint;
-            if (suvi_product.channel == "Fe094"){
+            if (suvi_product_copy.channel == "Fe094"){
              tint = {0.533, 1.0, 1.0};
-            }else if (suvi_product.channel == "Fe132"){
+            }else if (suvi_product_copy.channel == "Fe132"){
              tint = {0.0, 72.4 / 100, 72.4 / 100};  
-            }else if (suvi_product.channel == "Fe171"){
+            }else if (suvi_product_copy.channel == "Fe171"){
              tint = {1.0, 0.792, 0.184};
-            }else if (suvi_product.channel == "Fe195"){
+            }else if (suvi_product_copy.channel == "Fe195"){
              tint = {100.0/ 100, 49.2 / 100, 0.0};
-            }else if (suvi_product.channel == "Fe284"){
+            }else if (suvi_product_copy.channel == "Fe284"){
              tint = {47.5 / 100, 79.7 / 100, 99.6 / 100};
-            }else if (suvi_product.channel == "Fe304"){
+            }else if (suvi_product_copy.channel == "Fe304"){
              tint = {100.0 / 100, 41.7 / 100, 0};
             }
 
             double gamma_value = 0.5; // Values less than 1.0 make the image brighter
 
             //apply ours tints
-            for (size_t y = 0; y < full_image.height(); ++y)
-             for (size_t x = 0; x < full_image.width(); ++x){
-              double raw = full_image.get_pixel_bilinear(0, (double)x, (double)y);
+            for (size_t y = 0; y < full_image_copy->height(); ++y)
+             for (size_t x = 0; x < full_image_copy->width(); ++x){
+              double raw = full_image_copy->get_pixel_bilinear(0, (double)x, (double)y);
               double v = (raw - min_val) * scale;        // normalize to 0–1
               v = std::pow(v, gamma_value);
 
@@ -94,11 +107,11 @@ namespace goes
              color[2] = tint[2] + (1.0 - tint[2]) * t;
          }
 
-full_image.draw_pixel(x, y, color);
+full_image_copy->draw_pixel(x, y, color);
 
               
 
-              full_image.draw_pixel(x, y, color);
+              full_image_copy->draw_pixel(x, y, color);
               }
 
 //product handling just incase we need it again
@@ -110,9 +123,10 @@ full_image.draw_pixel(x, y, color);
             //suvi_product_data.set_timestamps({ static_cast<double>(currentTimeStamp) });
             //suvi_product_data.images.push_back({"SUVI-" + suvi_product.channel, suvi_product.channel, full_image});
             //suvi_product_data.save(directory);
-image::median_blur(full_image);
+image::median_blur(*full_image_copy);
 
-            saving_thread->push(full_image, std::string(directory + filename));
+            saving_thread_ptr->push(*full_image_copy, std::string(directory_copy + filename_copy));
+            }).detach();
         }
 
         void GRBSUVIImageAssembler::reset()
