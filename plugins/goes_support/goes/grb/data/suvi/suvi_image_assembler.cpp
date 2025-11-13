@@ -41,15 +41,17 @@ namespace goes
 
 // new stuff (yes I know most of this was done with the help with chatgpt but whatever works. it will get cleaned up more when I get more used to this)
     
+
+    //create our stuff for our detached thread
     auto full_image_copy = std::make_shared<image::Image>(full_image);   // deep copy or shared pointer
-    auto suvi_product_copy = suvi_product;                        // local copy of struct
+    auto suvi_product_copy = suvi_product;  // local copy of struct
     auto directory_copy = directory;
     auto filename_copy = filename;
     auto saving_thread_ptr = saving_thread; 
 
 
 
-
+//start the thread
 std::thread([=](){
            image::white_balance(*full_image_copy);
             full_image_copy->to_rgb();
