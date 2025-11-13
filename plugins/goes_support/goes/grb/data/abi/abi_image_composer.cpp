@@ -1,6 +1,7 @@
 #include "abi_image_composer.h"
 #include <ctime>
 #include <filesystem>
+#include "goes/grb/data/abi/abi_products.h"
 #include "logger.h"
 #include "resources.h"
 
@@ -84,12 +85,18 @@ namespace goes
             // Check if we can make 1-3-5
             if (has_channels[0] && has_channels[2] && has_channels[4])
             {
-                logger->debug("Generating RGB135 composite...");
+
+                //check and only create composites from MESO and CONUS due to FD causing packets drops on lower end hardware(hopefully Aang can reworks threads to fix this)
+                if (products::ABI::abiZoneToString(abi_product_type) == "MESO1" || products::ABI::abiZoneToString(abi_product_type) == "MESO2" || products::ABI::abiZoneToString(abi_product_type) == "CONUS" ){
+                logger->debug("Generating RGB135 composite... (MESO CONUS ONLY!)");
                 image::Image compo(16, channel_images[0].width(), channel_images[0].height(), 3);
                 compo.draw_image(0, channel_images[4]);
                 compo.draw_image(1, channel_images[2]);
                 compo.draw_image(2, channel_images[0]);
                 saveABICompo(compo, "RGB135");
+                }else {
+            logger->debug("FD detected! Not creating composite!");
+            }
             }
 
             // Check if we can make 2-14, for a composite with LHCP only
