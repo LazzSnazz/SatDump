@@ -89,17 +89,24 @@ namespace goes
               auto channel_images_copy_4 = std::make_shared<image::Image>(channel_images[4]);
               auto channel_images_copy_2 = std::make_shared<image::Image>(channel_images[2]);              
               auto channel_images_copy_0 = std::make_shared<image::Image>(channel_images[0]);
+              auto zone = products::ABI::abiZoneToString(abi_product_type);
               
 
 std::thread([=](){
 
-                //check and only create composites from MESO and CONUS due to FD causing packets drops on lower end hardware(hopefully Aang can reworks threads to fix this)
-                logger->debug("Generating RGB135 composite... (WIP THREADING)");
+                //check and only create composites from MESO and CONUS due to FD causing packets drops on lower end hardware(hopefully Aang can reworks threads to fix this (I mean could also be the r710))
+                if (zone == "MESO1" || zone == "MESO2" || zone == "CONUS") {
+                
+                
+                logger->debug("Generating RGB135 composite... (WIP THREADING MESO CONUS ONLY)");
                 image::Image compo(16, channel_images_copy_0->width(), channel_images_copy_0->height(), 3);
                 compo.draw_image(0, *channel_images_copy_4);
                 compo.draw_image(1, *channel_images_copy_2);
                 compo.draw_image(2, *channel_images_copy_0);
                 saveABICompo(compo, "RGB135", utc_filename_copy);
+                }else {
+                logger->debug("Fulldisk detected!");
+                }
             }).detach();
             }
 
